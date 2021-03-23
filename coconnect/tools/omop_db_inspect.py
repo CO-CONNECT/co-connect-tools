@@ -2,15 +2,19 @@ import json
 import os
 import sqlalchemy as sql
 import pandas as pd
+from dotenv import load_dotenv
+from pathlib import Path
 
 
 class OMOPDetails():
     def __init__(self):
-        db_name = os.environ['OMOP_POSTGRES_DB']
-        db_user = os.environ['OMOP_POSTGRES_USER']
-        db_password = os.environ['OMOP_POSTGRES_PASSWORD']
-        db_host = os.environ['OMOP_POSTGRES_HOST']
-        db_port = int(os.environ['OMOP_POSTGRES_PORT'])
+        env_path = Path('../../scripts')/'.env'
+        load_dotenv(dotenv_path=env_path)
+        db_name = os.environ.get('OMOP_POSTGRES_DB')
+        db_user = os.environ.get('OMOP_POSTGRES_USER')
+        db_password = os.environ.get('OMOP_POSTGRES_PASSWORD')
+        db_host = os.environ.get('OMOP_POSTGRES_HOST')
+        db_port = int(os.environ.get('OMOP_POSTGRES_PORT'))
         # need special format for azure
         # https://github.com/MicrosoftDocs/azure-docs/issues/6371#issuecomment-376997025
         con_str = f'postgresql://{db_user}%40{db_host}:{db_password}@{db_host}:{db_port}/{db_name}'
@@ -97,9 +101,9 @@ class OMOPDetails():
                     target_df_concept = self.get_concept_table(target_concept_id)
                     return target_df_concept['domain_id']
 
-# concept_id=4060225
-# detail1=OMOPDetails(concept_id)
-# print(detail1.target_concept_id)
+concept_id=4060225
+detail1=OMOPDetails()
+print(detail1.obtain_target_concept_id(concept_id))
 # print(detail1.target_table)
 # print(detail1.is_standard)
 # exit(0)
