@@ -172,23 +172,18 @@ class OMOPDetails():
         return joined_df
         
     
-    def get_vocab(self,source_concept_ids):
-        print ("Working on...", source_concept_ids)
+    def get_vocab(self,source_concept_ids,vocabulary):
+        print ("Working on...")
         select_from_concept = r'''
         SELECT *
         FROM public.concept
-        WHERE concept_id IN (%s)
+        WHERE vocabulary_id IN ('%s') 
         '''
-        select_from_vocabulary = r'''
+        select_from_concept2 = r'''
         SELECT *
-        FROM public.vocabulary
-        WHERE vocabulary_id='SNOMED'
+        FROM public.concept
+        WHERE concept_id IN (%s) 
         '''
-        if isinstance(source_concept_ids,int):
-            source_concept_ids = {None: source_concept_ids}
-        if isinstance(source_concept_ids,str):
-            source_concept_ids = {None: source_concept_ids}
-
         #convert the list of concept ids into something the read_sql can handle
         #aka a joined list
         _ids = ",".join([
@@ -196,7 +191,7 @@ class OMOPDetails():
             for x in source_concept_ids.values()
         ])
         df_concept = pd.read_sql(
-            select_from_concept%(_ids),self.ngin)\
+            select_from_concept%(vocabulary),self.ngin)\
                        .drop(#drop some useless shit
                            [
                                "valid_start_date",
@@ -204,11 +199,26 @@ class OMOPDetails():
                                "invalid_reason"
                            ]
                            ,axis=1)
-        df_vocabulary = pd.read_sql(
-            select_from_vocabulary,self.ngin)
+        df_concept2 = pd.read_sql(
+            select_from_concept2%(_ids),self.ngin)\
+                       .drop(#drop some useless shit
+                           [
+                               "valid_start_date",
+                               "valid_end_date",
+                               "invalid_reason"
+                           ]
+                           ,axis=1)
         pd.set_option('display.max_rows', None)
-        print(df_concept['vocabulary_id'])
-        print(df_concept['concept_code'])
+        # print(df_concept['vocabulary_id'])
+        if len(df_concept2.merge(df_concept)) == len(df_concept2):
+            print("is a subset")
+            print(df_concept2.merge(df_concept))
+        else:
+            print('is not a subset')
+
+            merged = df_concept2.merge(df_concept, how='left', indicator=True)
+            print (merged.query('_merge == "left_only"'))
+        # print(df_concept)
 
     
     def get_rules(self,source_concept_ids):
@@ -408,7 +418,8 @@ if __name__ == '__main__':
     from dotenv import load_dotenv
     load_dotenv()
     tool = OMOPDetails(load_from_db=False)
-    vocab=tool.get_vocab(37399052)
+    tool.get_vocab({"BLACK CARIBBEAN": 4087917, "ASIAN OTHER": 4087922, "INDIAN": 4185920, "WHITE BRITISH": 4196428,"":45577780},'SNOMED')
+    tool.get_vocab({"BLACK CARIBBEAN": 4087917, "ASIAN OTHER": 4087922, "INDIAN": 4185920, "WHITE BRITISH": 4196428,"":45577780},'ICD10')
     #print (tool.get_rules(37399052))
     #rules = tool.get_rules({'M':8507,'F':8532})
     #print (json.dumps(rules,indent=6))
