@@ -118,11 +118,7 @@ class OMOPDetails():
         #]
         #self.omop_tables.sort()
 
-    """ get_rules() method: 
-        1)Queries the DB, gets the contents of two tables: concept & concept_relationship
-        and puts the contents into two pandas dataframes.
-        2) Checks if the conceptID is standard/non-standard
-    """
+  
     
     def lookup_code(self, concept_code):
         
@@ -173,13 +169,15 @@ class OMOPDetails():
         
     
     def get_vocab(self,source_concept_ids,vocabulary):
-        print ("Working on...")
-        select_from_concept = r'''
+        print ("Searching for...",source_concept_ids," in ",vocabulary)
+        # Select all rows of a given vocabulary from concept table
+        select_from_vocabulary = r'''
         SELECT *
         FROM public.concept
         WHERE vocabulary_id IN ('%s') 
         '''
-        select_from_concept2 = r'''
+        # Select rows of the given source_concept ids from concept table 
+        select_from_concept = r'''
         SELECT *
         FROM public.concept
         WHERE concept_id IN (%s) 
@@ -190,8 +188,9 @@ class OMOPDetails():
             str(x)
             for x in source_concept_ids.values()
         ])
-        df_concept = pd.read_sql(
-            select_from_concept%(vocabulary),self.ngin)\
+        # Dataframe contains all SNOMED/ICD10 rows
+        df_vocab = pd.read_sql(
+            select_from_vocabulary%(vocabulary),self.ngin)\
                        .drop(#drop some useless shit
                            [
                                "valid_start_date",
@@ -199,8 +198,8 @@ class OMOPDetails():
                                "invalid_reason"
                            ]
                            ,axis=1)
-        df_concept2 = pd.read_sql(
-            select_from_concept2%(_ids),self.ngin)\
+        df_concept = pd.read_sql(
+            select_from_concept%(_ids),self.ngin)\
                        .drop(#drop some useless shit
                            [
                                "valid_start_date",
@@ -209,18 +208,27 @@ class OMOPDetails():
                            ]
                            ,axis=1)
         pd.set_option('display.max_rows', None)
-        # print(df_concept['vocabulary_id'])
-        if len(df_concept2.merge(df_concept)) == len(df_concept2):
+        # Check if df_concept is a subset of df_vocab
+        # If all rows are in df_vocab then they all match the predefined vocabulary
+        # If they are not all in df_vocab then print those that are from a different vocabulary
+        if len(df_concept.merge(df_vocab)) == len(df_concept):
             print("is a subset")
-            print(df_concept2.merge(df_concept))
+            print(df_concept.merge(df_concept))
+            match=True
+            return match 
         else:
             print('is not a subset')
-
-            merged = df_concept2.merge(df_concept, how='left', indicator=True)
-            print (merged.query('_merge == "left_only"'))
-        # print(df_concept)
-
-    
+            merged = df_concept.merge(df_vocab, how='left', indicator=True)
+            no_match=merged.query('_merge == "left_only"')
+            print(no_match)
+            return no_match
+        
+ 
+    """ get_rules() method: 
+        1)Queries the DB, gets the contents of two tables: concept & concept_relationship
+        and puts the contents into two pandas dataframes.
+        2) Checks if the conceptID is standard/non-standard
+    """
     def get_rules(self,source_concept_ids):
         print ("working on",source_concept_ids)
         #From OMOP db get concept relationship
